@@ -1,0 +1,19 @@
+{
+  "startup_items": [
+    {
+      "id": "sample-edge",
+      "type": "browser_url",
+      "enabled": false,
+      "label": "샘플 - 네이버 오픈 (테스트용)",
+      "url": "https://www.naver.com",
+      "browser": "edge",
+      "delay_seconds": 2
+    }
+  ],
+  "settings": {
+    "api_port": 8000,
+    "dashboard_port": 3000,
+    "log_enabled": true,
+    "registered_as_startup": false
+  }
+}

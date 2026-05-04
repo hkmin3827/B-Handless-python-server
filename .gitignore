@@ -1,0 +1,50 @@
+.env
+.env.*
+*.local
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+credentials
+credentials.json
+secrets.json
+*.secret
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+env/
+.pytest_cache/
+.mypy_cache/
+*.spec
+
+# ── 런타임 산출물 ──────────────────────────────────────
+*.log
+logs/
+
+# ── 업로드 파일 (.gitkeep만 유지) ──────────────────────
+uploads/*
+!uploads/.gitkeep
+
+# ── OS ────────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ── 에디터 ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
