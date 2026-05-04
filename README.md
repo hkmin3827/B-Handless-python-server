@@ -34,11 +34,11 @@
 ### 구성
 
 이 레포는 백엔드(Python) 단독 레포다.  
-프론트엔드(React 대시보드)는 별도 레포 `b-handless-dashboard`에서 관리한다.
+프론트엔드(React 대시보드)는 별도 레포 `b-handless-dashboard`에서 관리할 예정이다.
 
 | 레포 | 역할 |
 |------|------|
-| `b-handless-server` (이 레포) | 실행 엔진 + Windows 제어 + REST API |
+| `b-handless-python-server` (이 레포) | 실행 엔진 + Windows 제어 + REST API |
 | `b-handless-dashboard` | 설정 UI (React + Vite, PWA) |
 
 ---
@@ -452,7 +452,7 @@ server/
       "type": "app",
       "label": "VSCode",
       "enabled": true,
-      "path": "C:/Users/hkmin/AppData/Local/Programs/Microsoft VS Code/Code.exe",
+      "path": "C:/Users/min/AppData/Local/Programs/Microsoft VS Code/Code.exe",
       "delay_seconds": 5
     }
   ],
@@ -463,42 +463,6 @@ server/
     "registered_as_startup": false
   }
 }
-```
-
----
-
-## 8. 설치 및 실행
-
-### 요구사항
-
-- Windows 10 / 11
-- Python 3.11 이상
-
-### Phase 1 (현재) — 외부 패키지 없음
-
-```bash
-# 1. 레포 클론
-git clone https://github.com/{username}/b-handless-server.git
-cd b-handless-server
-
-# 2. 바로 실행 (설치 불필요)
-python main.py
-
-# 3. Windows 시작 프로그램 등록 (이후 부팅마다 자동 실행)
-python main.py --register
-
-# 4. 등록 확인
-python main.py --status
-
-# 5. 해제
-python main.py --unregister
-```
-
-### Phase 3 이후 — FastAPI 포함
-
-```bash
-pip install -r requirements.txt
-python main.py
 ```
 
 ---

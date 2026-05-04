@@ -1,8 +1,12 @@
+import hashlib
 import json
 import uuid
 from pathlib import Path
 
+from core.security import validate_item
+
 CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+_HASH_PATH = CONFIG_PATH.with_suffix(".json.hash")
 
 
 class ConfigManager:
@@ -11,12 +15,32 @@ class ConfigManager:
             default = self._default()
             self.save(default)
             return default
-        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
+
+        raw = CONFIG_PATH.read_bytes()
+        self._verify_hash(raw)
+
+        return json.loads(raw.decode("utf-8"))
 
     def save(self, config: dict):
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config, f, ensure_ascii=False, indent=2)
+        content = json.dumps(config, ensure_ascii=False, indent=2)
+        raw = content.encode("utf-8")
+        CONFIG_PATH.write_bytes(raw)
+        _HASH_PATH.write_text(self._sha256(raw), encoding="utf-8")
+
+    def _sha256(self, data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
+
+    def _verify_hash(self, raw: bytes):
+        """해시 파일이 있을 때만 검증. 불일치 시 경고만 출력 (실행은 계속)."""
+        if not _HASH_PATH.exists():
+            return
+        expected = _HASH_PATH.read_text(encoding="utf-8").strip()
+        actual = self._sha256(raw)
+        if expected != actual:
+            import logging
+            logging.getLogger("b-handless").warning(
+                "⚠️  config.json 해시 불일치 — 파일이 외부에서 변조됐을 수 있습니다."
+            )
 
     def get_items(self) -> list:
         return self.load().get("startup_items", [])
@@ -25,10 +49,11 @@ class ConfigManager:
         return next((i for i in self.get_items() if i["id"] == item_id), None)
 
     def add_item(self, item: dict) -> dict:
-        config = self.load()
-        item["id"] = str(uuid.uuid4())[:8]
         item.setdefault("enabled", True)
         item.setdefault("delay_seconds", 0)
+        validate_item(item)  # 저장 전 검증
+        config = self.load()
+        item["id"] = str(uuid.uuid4())[:8]
         config["startup_items"].append(item)
         self.save(config)
         return item
@@ -37,7 +62,9 @@ class ConfigManager:
         config = self.load()
         for i, item in enumerate(config["startup_items"]):
             if item["id"] == item_id:
-                config["startup_items"][i].update(updates)
+                merged = {**item, **updates}
+                validate_item(merged)  # 저장 전 검증
+                config["startup_items"][i] = merged
                 self.save(config)
                 return config["startup_items"][i]
         return None

@@ -1,10 +1,12 @@
 import logging
-import os
 import subprocess
 import threading
 import time
 import webbrowser
+import winreg
 from pathlib import Path
+
+from core.security import SUPPORTED_BROWSERS, validate_exe_path, validate_url
 
 LOGS_DIR = Path(__file__).parent.parent / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
@@ -19,14 +21,24 @@ logging.basicConfig(
 )
 log = logging.getLogger("b-handless")
 
-_EDGE_PATHS = [
-    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
-]
+_APP_PATHS_KEY = r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths"
 
 
-def _find_edge() -> str | None:
-    return next((p for p in _EDGE_PATHS if os.path.exists(p)), None)
+def _find_browser(browser: str) -> str | None:
+    """레지스트리 App Paths에서 브라우저 실행 파일 경로 반환. 없으면 None."""
+    exe = SUPPORTED_BROWSERS.get(browser.lower())
+    if not exe:
+        return None
+    key_path = f"{_APP_PATHS_KEY}\\{exe}"
+    for hive in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            key = winreg.OpenKey(hive, key_path, 0, winreg.KEY_READ)
+            path, _ = winreg.QueryValueEx(key, "")
+            winreg.CloseKey(key)
+            return path
+        except (FileNotFoundError, OSError):
+            continue
+    return None
 
 
 def launch_item(item: dict):
@@ -49,38 +61,43 @@ def launch_item(item: dict):
 
 
 def _launch_browser_url(item: dict, label: str):
-    url = item.get("url", "")
-    if not url:
-        log.error(f"[browser_url] {label}: url이 비어 있습니다.")
+    try:
+        url = validate_url(item.get("url", ""))
+    except ValueError as e:
+        log.error(f"[browser_url] {label}: {e}")
         return
 
-    browser = item.get("browser", "edge")
-    if browser == "edge":
-        edge = _find_edge()
-        if edge:
-            subprocess.Popen([edge, url])
-            log.info(f"[browser_url] {label} → Edge: {url}")
-            return
-        log.warning(f"[browser_url] {label}: Edge를 찾지 못해 기본 브라우저로 오픈합니다.")
+    browser = item.get("browser", "edge").lower()
+    browser_path = _find_browser(browser)
 
-    webbrowser.open(url)
-    log.info(f"[browser_url] {label} → 기본 브라우저: {url}")
+    if browser_path:
+        subprocess.Popen([browser_path, url])
+        log.info(f"[browser_url] {label} → {browser}: {url}")
+    else:
+        log.warning(
+            f"[browser_url] {label}: '{browser}'을(를) 설치 확인 불가 — "
+            "해당 브라우저가 PC에 설치되어 있어야 합니다. 기본 브라우저로 대신 오픈합니다."
+        )
+        webbrowser.open(url)
+        log.info(f"[browser_url] {label} → 기본 브라우저(폴백): {url}")
 
 
 def _launch_executable(item: dict, label: str):
-    path = item.get("path", "")
-    if not path:
-        log.error(f"[exe] {label}: path가 비어 있습니다.")
+    try:
+        resolved = validate_exe_path(item.get("path", ""))
+    except ValueError as e:
+        log.error(f"[exe] {label}: {e}")
         return
-
-    # 상대 경로면 프로젝트 루트 기준으로 해석
-    resolved = Path(path) if Path(path).is_absolute() else Path(__file__).parent.parent / path
 
     if not resolved.exists():
         log.error(f"[exe] {label}: 파일 없음 → {resolved}")
         return
 
     args = item.get("args", [])
+    if not isinstance(args, list):
+        log.error(f"[exe] {label}: args는 리스트여야 합니다.")
+        return
+
     subprocess.Popen([str(resolved)] + args)
     log.info(f"[exe] {label} → {resolved}")
 
