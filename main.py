@@ -1,5 +1,6 @@
 """
   python main.py              → 시작 항목 전체 실행 (부팅 시 자동 호출)
+  python main.py --serve      → FastAPI 서버 실행 (대시보드 연동용)
   python main.py --register   → Windows 시작 프로그램에 등록
   python main.py --unregister → Windows 시작 프로그램에서 제거
   python main.py --status     → 등록 상태 확인
@@ -9,6 +10,7 @@ import sys
 from core.config_manager import ConfigManager
 from core.launcher import launch_all
 from core import scheduler
+from core.security import SERVER_HOST
 
 
 def main():
@@ -27,6 +29,26 @@ def main():
     if "--status" in args:
         registered = scheduler.is_registered()
         print(f"시작 프로그램 등록 상태: {'[등록됨]' if registered else '[미등록]'}")
+        return
+
+    if "--serve" in args:
+        import threading
+        import webbrowser
+        import uvicorn
+        from core.config_manager import ConfigManager as CM
+        from api.server import app
+
+        port = CM().get_settings().get("api_port", 8000)
+        url = f"http://{SERVER_HOST}:{port}"
+        print(f"[B-Handless] 서버 시작 → {url}")
+
+        def _open_browser():
+            import time
+            time.sleep(1.5)
+            webbrowser.open(url)
+
+        threading.Thread(target=_open_browser, daemon=True).start()
+        uvicorn.run(app, host=SERVER_HOST, port=port, reload=False)
         return
 
     cm = ConfigManager()
