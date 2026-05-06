@@ -1,0 +1,38 @@
+{
+  "startup_items": [
+    {
+      "id": "sample-web",
+      "type": "browser_url",
+      "label": "샘플 - 웹사이트 열기",
+      "enabled": true,
+      "delay_seconds": 0,
+      "url": "https://example.com",
+      "browser": "edge",
+      "args": []
+    },
+    {
+      "id": "sample-app",
+      "type": "app",
+      "label": "샘플 - 앱 실행",
+      "enabled": false,
+      "delay_seconds": 5,
+      "path": "C:\\Program Files\\YourApp\\app.exe",
+      "args": []
+    },
+    {
+      "id": "sample-exe",
+      "type": "exe",
+      "label": "샘플 - 실행파일",
+      "enabled": false,
+      "delay_seconds": 10,
+      "path": "C:\\Users\\YourName\\scripts\\startup.bat",
+      "args": []
+    }
+  ],
+  "settings": {
+    "api_port": 8000,
+    "dashboard_port": 3000,
+    "log_enabled": true,
+    "registered_as_startup": false
+  }
+}

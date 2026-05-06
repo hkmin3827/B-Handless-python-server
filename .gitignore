@@ -35,6 +35,7 @@ env/
 web/
 *.log
 logs/
+config.json
 config.json.hash
 
 # ── 업로드 파일 (.gitkeep만 유지) ──────────────────────

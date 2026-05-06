@@ -9,8 +9,10 @@ from fastapi.routing import APIRouter
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from core.app_search import get_icon_b64, search_apps
 from core.config_manager import ConfigManager
 from core.launcher import _find_browser, launch_by_id
+from core import scheduler
 from core.security import CORS_ORIGINS, SUPPORTED_BROWSERS
 
 # ── 모바일 차단 ───────────────────────────────────────────────────────────────
@@ -96,7 +98,12 @@ def get_item(item_id: str) -> dict:
 @router.post("/items", status_code=201)
 def add_item(body: ItemBody) -> dict:
     try:
-        return cm.add_item(body.model_dump(exclude_none=False))
+        data = body.model_dump(exclude_none=False)
+        if data.get("type") in ("app", "exe", "uploaded_exe") and data.get("path"):
+            icon = get_icon_b64(data["path"])
+            if icon:
+                data["icon_b64"] = icon
+        return cm.add_item(data)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -145,6 +152,29 @@ def update_settings(body: SettingsUpdate) -> dict:
         raise HTTPException(status_code=422, detail="변경할 필드를 하나 이상 전달해야 합니다.")
     cm.update_settings(updates)
     return cm.get_settings()
+
+@router.post("/startup/register")
+def register_startup() -> dict[str, Any]:
+    ok = scheduler.register()
+    if ok:
+        cm.update_settings({"registered_as_startup": True})
+    return {"ok": ok}
+
+@router.post("/startup/unregister")
+def unregister_startup() -> dict[str, Any]:
+    ok = scheduler.unregister()
+    if ok:
+        cm.update_settings({"registered_as_startup": False})
+    return {"ok": ok}
+
+@router.get("/apps/search")
+def search_installed_apps(q: str = "") -> list[dict]:
+    return search_apps(q)
+
+@router.get("/apps/icon")
+def get_app_icon(path: str = "") -> dict[str, Any]:
+    icon = get_icon_b64(path) if path else None
+    return {"icon": icon}
 
 @router.get("/browsers")
 def list_browsers() -> list[dict[str, Any]]:
