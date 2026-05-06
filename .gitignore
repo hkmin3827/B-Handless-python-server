@@ -30,6 +30,7 @@ env/
 .mypy_cache/
 *.spec
 !b-handless.spec
+.exe
 
 # ── 런타임 산출물 ──────────────────────────────────────
 web/
