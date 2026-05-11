@@ -1,4 +1,3 @@
-"""설치된 앱 검색 + 아이콘 추출 (PowerShell 활용, 추가 의존성 없음)"""
 from __future__ import annotations
 
 import json
@@ -9,15 +8,11 @@ from pathlib import Path
 
 _NO_WINDOW = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
 
-# ── 캐시 ─────────────────────────────────────────────────────────────────────
-
 _app_cache: list[dict] | None = None
 _cache_ts: float = 0
 _CACHE_TTL = 300  # 5분
 
 _icon_cache: dict[str, str] = {}
-
-# ── 앱 목록 스캔 ──────────────────────────────────────────────────────────────
 
 _SCAN_PS = r"""
 $ErrorActionPreference = 'SilentlyContinue'
@@ -86,8 +81,6 @@ def search_apps(q: str) -> list[dict]:
     matched = [a for a in apps if q_lower in a.get("name", "").lower()]
     return matched[:20]
 
-
-# ── 아이콘 추출 ───────────────────────────────────────────────────────────────
 
 def get_icon_b64(path: str) -> str | None:
     """exe 경로에서 아이콘을 추출해 base64 PNG로 반환"""
