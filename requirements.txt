@@ -3,6 +3,7 @@
 # Phase 3 (FastAPI 서버) 때 추가
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
+user-agents>=2.2.0
 
 # Phase 5 (패키징) 때 추가
 pyinstaller>=6.0.0

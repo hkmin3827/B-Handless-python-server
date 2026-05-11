@@ -4,10 +4,11 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.routing import APIRouter
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from user_agents import parse as parse_ua
 
 from core.app_search import get_icon_b64, search_apps
 from core.config_manager import ConfigManager
@@ -15,41 +16,93 @@ from core.launcher import _find_browser, launch_by_id
 from core import scheduler
 from core.security import CORS_ORIGINS, SUPPORTED_BROWSERS
 
-# ── 모바일 차단 ───────────────────────────────────────────────────────────────
-
-_MOBILE_UA = ("android", "iphone", "ipad", "ipod", "mobile", "blackberry",
-              "windows phone", "opera mini", "silk")
+_MOBILE_PATH = "/mobile"
 
 _ASSET_EXTS = (".js", ".css", ".png", ".ico", ".svg", ".json",
                ".woff", ".woff2", ".ttf", ".webmanifest")
 
+_MOBILE_GUIDE_HTML = """<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>B-Handless — 데스크톱 전용</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #0f0f13;
+      color: #e2e2e6;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 24px;
+    }
+    .card {
+      max-width: 380px;
+      width: 100%;
+      background: #1a1a24;
+      border: 1px solid #2e2e40;
+      border-radius: 20px;
+      padding: 40px 32px;
+      text-align: center;
+    }
+    .icon { font-size: 56px; margin-bottom: 20px; line-height: 1; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 10px; color: #fff; }
+    p  { font-size: 14px; line-height: 1.7; color: #9090a8; }
+    .badge {
+      display: inline-block;
+      margin-top: 28px;
+      padding: 8px 20px;
+      background: #2e2e40;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #6060a0;
+      letter-spacing: 0.04em;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🖥️</div>
+    <h1>데스크톱 전용 앱입니다</h1>
+    <p>
+      B-Handless는 Windows 데스크톱 환경에서만 동작합니다.<br>
+      PC 브라우저로 접속해 주세요.
+    </p>
+    <span class="badge">Mobile &amp; Tablet 미지원</span>
+  </div>
+</body>
+</html>"""
+
 
 def _is_mobile(request: Request) -> bool:
-    ua = request.headers.get("user-agent", "").lower()
-    return any(kw in ua for kw in _MOBILE_UA)
+    ua = parse_ua(request.headers.get("user-agent", ""))
+    return ua.is_mobile or ua.is_tablet
 
-
-# ── 앱 초기화 ─────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="B-Handless API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+
+@app.get(_MOBILE_PATH, response_class=HTMLResponse, include_in_schema=False)
+async def mobile_guide():
+    return HTMLResponse(content=_MOBILE_GUIDE_HTML)
 
 
 @app.middleware("http")
 async def block_mobile(request: Request, call_next):
     path = request.url.path
     is_asset = any(path.endswith(ext) for ext in _ASSET_EXTS)
-    if not is_asset and _is_mobile(request):
-        return JSONResponse(
-            status_code=403,
-            content={"detail": "B-Handless는 데스크톱 전용 앱입니다."},
-        )
+    if not is_asset and path != _MOBILE_PATH and _is_mobile(request):
+        return RedirectResponse(url=_MOBILE_PATH, status_code=302)
     return await call_next(request)
 
 
