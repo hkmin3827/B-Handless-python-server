@@ -1,12 +1,5 @@
-# Phase 1 — 표준 라이브러리만 사용 (설치 불필요)
-
-# Phase 3 (FastAPI 서버) 때 추가
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 user-agents>=2.2.0
-
-# Phase 5 (패키징) 때 추가
 pyinstaller>=6.0.0
-
-# 선택: 프로세스 상태 확인 (실행 중 여부 감지)
 psutil>=5.9.0
