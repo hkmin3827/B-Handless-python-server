@@ -1,5 +1,5 @@
 """
-  python main.py              → 시작 항목 전체 실행 (부팅 시 자동 호출)
+  python main.py              → 트레이 앱 실행 (서버 + 시작 항목 + 트레이 아이콘)
   python main.py --serve      → FastAPI 서버 실행 (대시보드 연동용)
   python main.py --register   → Windows 시작 프로그램에 등록
   python main.py --unregister → Windows 시작 프로그램에서 제거
@@ -51,9 +51,26 @@ def main():
         uvicorn.run(app, host=SERVER_HOST, port=port, reload=False)
         return
 
+    import threading
+    import uvicorn
+    from api.server import app as fastapi_app
+    from core.tray import run_tray
+
     cm = ConfigManager()
     config = cm.load()
-    launch_all(config)
+    port = cm.get_settings().get("api_port", 8000)
+
+    # 시작 항목 런치 (서버 시작과 병렬로)
+    threading.Thread(target=lambda: launch_all(config), daemon=False).start()
+
+    # FastAPI 서버 (트레이 종료 시 같이 죽도록 daemon)
+    threading.Thread(
+        target=lambda: uvicorn.run(fastapi_app, host=SERVER_HOST, port=port, reload=False),
+        daemon=True,
+    ).start()
+
+    # 트레이 아이콘 (메인 스레드 점유, 종료 선택 시 프로세스 종료)
+    run_tray(port)
 
 
 if __name__ == "__main__":

@@ -33,6 +33,12 @@ a = Analysis(
         "anyio._backends._asyncio",
         "starlette.routing",
         "starlette.staticfiles",
+        "pystray",
+        "pystray._win32",
+        "PIL",
+        "PIL.Image",
+        "PIL.ImageDraw",
+        "PIL.ImageFont",
     ],
     hookspath=[],
     runtime_hooks=[],
@@ -51,7 +57,7 @@ exe = EXE(
     debug=False,
     strip=False,
     upx=True,
-    console=True,   # 서버 로그 확인용 — 배포 시 False로 변경 가능
+    console=False,  # 트레이 앱 — 콘솔 창 없이 백그라운드 실행
 )
 
 coll = COLLECT(
