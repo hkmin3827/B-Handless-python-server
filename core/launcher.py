@@ -1,5 +1,6 @@
 import logging
 import subprocess
+import sys
 import threading
 import time
 import webbrowser
@@ -8,7 +9,14 @@ from pathlib import Path
 
 from core.security import SUPPORTED_BROWSERS, validate_exe_path, validate_url
 
-LOGS_DIR = Path(__file__).parent.parent / "logs"
+
+def _app_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).parent.parent
+
+
+LOGS_DIR = _app_root() / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 
 logging.basicConfig(

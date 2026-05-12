@@ -141,7 +141,10 @@ def run_item(item_id: str) -> dict[str, Any]:
 
 @router.get("/settings")
 def get_settings() -> dict:
-    return cm.get_settings()
+    settings = cm.get_settings()
+    # config.json 값 대신 레지스트리 실제 상태를 반환
+    settings["registered_as_startup"] = scheduler.is_registered()
+    return settings
 
 @router.patch("/settings")
 def update_settings(body: SettingsUpdate) -> dict:
@@ -149,7 +152,9 @@ def update_settings(body: SettingsUpdate) -> dict:
     if not updates:
         raise HTTPException(status_code=422, detail="변경할 필드를 하나 이상 전달해야 합니다.")
     cm.update_settings(updates)
-    return cm.get_settings()
+    settings = cm.get_settings()
+    settings["registered_as_startup"] = scheduler.is_registered()
+    return settings
 
 @router.post("/startup/register")
 def register_startup() -> dict[str, Any]:

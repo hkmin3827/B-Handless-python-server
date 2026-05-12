@@ -193,9 +193,12 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
 
 | 함수 | 설명 |
 |------|------|
-| `is_registered()` | 현재 등록 여부 확인 (bool) |
-| `register()` | 레지스트리에 실행 명령어 등록 |
-| `unregister()` | 레지스트리에서 항목 제거 |
+| `is_registered()` | 시작 프로그램 등록 여부 확인 (bool) |
+| `register()` | 시작 프로그램 레지스트리에 실행 명령어 등록 |
+| `unregister()` | 시작 프로그램 레지스트리에서 항목 제거 |
+| `is_protocol_registered()` | `bhandless://` 프로토콜 등록 여부 확인 (bool) |
+| `register_protocol()` | `bhandless://` URL 프로토콜 핸들러 등록 |
+| `unregister_protocol()` | `bhandless://` URL 프로토콜 핸들러 제거 |
 
 #### 실행 명령어 결정 로직
 
@@ -259,9 +262,11 @@ Pillow로 런타임에 생성. 파란 원(#2563EB) + 흰색 "B" 텍스트. 외�
 |----------|------|
 | `python main.py` | **기본 모드**: 트레이 아이콘 상주 + 서버 시작 + 시작 항목 실행 (부팅 시 자동 호출) |
 | `python main.py --serve` | **서버 모드**: FastAPI 서버 실행 + 브라우저 자동 오픈 (개발·수동 관리용) |
-| `python main.py --register` | Windows 시작 프로그램에 등록 |
+| `python main.py --register` | Windows 시작 프로그램에 등록 + config.json `registered_as_startup` 업데이트 |
 | `python main.py --unregister` | Windows 시작 프로그램에서 해제 |
 | `python main.py --status` | 현재 등록 상태 출력 |
+| `python main.py --protocol-register` | `bhandless://` URL 프로토콜 핸들러 등록 |
+| `python main.py --protocol-unregister` | `bhandless://` URL 프로토콜 핸들러 해제 |
 
 ---
 
@@ -418,7 +423,7 @@ server/
 | `api_port` | 8000 | FastAPI 서버 포트 |
 | `dashboard_port` | 3000 | React 개발 서버 포트 |
 | `log_enabled` | true | 로그 기록 여부 |
-| `registered_as_startup` | false | Windows 시작 프로그램 등록 상태 |
+| `registered_as_startup` | false | Windows 시작 프로그램 등록 상태 (GET /api/settings 응답 시 레지스트리 실제값으로 덮어씀) |
 
 ---
 
@@ -443,10 +448,20 @@ npm run dev
 
 ```bash
 build.bat     # React 빌드 → server/web 복사 → PyInstaller 패키징
-install.bat   # AppData\Local\B-Handless 설치 + 시작 프로그램 등록
+install.bat   # AppData\Local\B-Handless 설치 + 시작 프로그램 등록 + bhandless:// 프로토콜 등록
 ```
 
+`install.bat` 실행 시 자동으로 수행되는 단계:
+1. `AppData\Local\B-Handless\` 폴더 생성 및 파일 복사
+2. config.json을 설치 디렉토리로 복사
+3. `--register` → Windows 시작 프로그램 등록 (로그인 시 자동 실행)
+4. `--protocol-register` → `bhandless://` URL 프로토콜 등록 (PWA 오프라인 시 서버 재시작용)
+
 설치 후 재부팅하면 트레이 아이콘이 자동으로 나타난다.
+
+> **데이터 파일 위치 (설치 환경)**  
+> `config.json`, `logs/`, `uploads/` 는 `AppData\Local\B-Handless\` 에 저장된다.  
+> `_internal/` 은 앱 번들이며 런타임 데이터를 저장하지 않는다.
 
 ### PWA로 설치 (앱처럼 사용)
 

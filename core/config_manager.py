@@ -1,11 +1,19 @@
 import hashlib
 import json
+import sys
 import uuid
 from pathlib import Path
 
 from core.security import validate_item
 
-CONFIG_PATH = Path(__file__).parent.parent / "config.json"
+
+def _app_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).parent.parent
+
+
+CONFIG_PATH = _app_root() / "config.json"
 _HASH_PATH = CONFIG_PATH.with_suffix(".json.hash")
 
 

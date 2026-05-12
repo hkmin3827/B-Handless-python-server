@@ -10,6 +10,8 @@ from pathlib import Path
 
 APP_NAME = "B-Handless"
 _REG_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+_PROTOCOL = "bhandless"
+_PROTOCOL_KEY = rf"SOFTWARE\Classes\{_PROTOCOL}"
 
 
 def _build_run_command() -> str:
@@ -56,6 +58,65 @@ def register() -> bool:
         return True
     except OSError as e:
         print(f"[ERROR] 시작 프로그램 등록 실패: {e}")
+        return False
+
+
+def register_protocol() -> bool:
+    """bhandless:// URL 프로토콜 핸들러 등록 (브라우저에서 B-Handless.exe 실행 가능)"""
+    try:
+        exe_cmd = _build_run_command().rstrip('"') + '" "%1"'
+
+        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, _PROTOCOL_KEY)
+        winreg.SetValueEx(key, "", 0, winreg.REG_SZ, f"URL:{APP_NAME} Protocol")
+        winreg.SetValueEx(key, "URL Protocol", 0, winreg.REG_SZ, "")
+        winreg.CloseKey(key)
+
+        cmd_key = winreg.CreateKey(
+            winreg.HKEY_CURRENT_USER, rf"{_PROTOCOL_KEY}\shell\open\command"
+        )
+        winreg.SetValueEx(cmd_key, "", 0, winreg.REG_SZ, exe_cmd)
+        winreg.CloseKey(cmd_key)
+        return True
+    except OSError as e:
+        print(f"[ERROR] 프로토콜 등록 실패: {e}")
+        return False
+
+
+def unregister_protocol() -> bool:
+    """bhandless:// URL 프로토콜 핸들러 제거"""
+    import shutil
+
+    def _delete_key_tree(hive, path: str) -> bool:
+        try:
+            key = winreg.OpenKey(hive, path, 0, winreg.KEY_ALL_ACCESS)
+            # 하위 키 먼저 재귀 삭제
+            while True:
+                try:
+                    sub = winreg.EnumKey(key, 0)
+                    _delete_key_tree(hive, rf"{path}\{sub}")
+                except OSError:
+                    break
+            winreg.CloseKey(key)
+            winreg.DeleteKey(hive, path)
+            return True
+        except FileNotFoundError:
+            return True
+        except OSError as e:
+            print(f"[ERROR] 키 삭제 실패 {path}: {e}")
+            return False
+
+    return _delete_key_tree(winreg.HKEY_CURRENT_USER, _PROTOCOL_KEY)
+
+
+def is_protocol_registered() -> bool:
+    """bhandless:// 프로토콜이 등록돼 있는지 확인"""
+    try:
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, _PROTOCOL_KEY, 0, winreg.KEY_READ)
+        winreg.CloseKey(key)
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError:
         return False
 
 

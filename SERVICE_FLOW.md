@@ -19,15 +19,22 @@
 ## 레지스트리에 등록되는 것
 
 ```
+[시작 프로그램]
 HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
 └─ B-Handless = "C:\...\B-Handless.exe"
                (개발 환경: "C:\...\pythonw.exe" "C:\...\main.py")
+
+[URL 프로토콜 핸들러]
+HKEY_CURRENT_USER\SOFTWARE\Classes\bhandless
+└─ shell\open\command = "C:\...\B-Handless.exe" "%1"
 ```
 
-- 등록되는 항목: **B-Handless 프로그램 자체 1개**
+- 등록되는 항목: **B-Handless 프로그램 자체 1개** (시작 프로그램)
+- **bhandless://** 프로토콜: PWA 오프라인 배너에서 서버 재시작 링크용
 - 등록된 웹/앱/실행파일들은 레지스트리에 추가 등록되지 않음
 - `--serve` 명령은 레지스트리를 전혀 변경하지 않음
-- 등록/해제는 `--register` / `--unregister` CLI 명령으로만 가능
+- 시작 프로그램 등록/해제: `--register` / `--unregister`
+- 프로토콜 등록/해제: `--protocol-register` / `--protocol-unregister`
 
 ---
 
@@ -36,9 +43,12 @@ HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
 ```
 1. install.bat 실행
    │
-   ├─ AppData\Local\B-Handless 에 설치
-   └─ B-Handless.exe --register 자동 호출
-      └─ 레지스트리 Run 키에 B-Handless 등록
+   ├─ [1/4] AppData\Local\B-Handless\ 에 파일 복사
+   ├─ [2/4] config.json 설치 디렉토리에 복사
+   ├─ [3/4] B-Handless.exe --register 자동 호출
+   │          └─ Run 키에 B-Handless 등록 + config.json registered_as_startup=true
+   └─ [4/4] B-Handless.exe --protocol-register 자동 호출
+              └─ HKCU\SOFTWARE\Classes\bhandless 등록 (PWA 오프라인 재시작용)
 
 2. 대시보드 접속 (B-Handless.exe 실행 후)
    │
@@ -127,14 +137,30 @@ Windows 로그인
 
 ## 데이터 저장 구조
 
+**개발 환경** (`python main.py`)
 ```
 server/
-├─ config.json          ← 실행 항목 목록 + 설정 (레포 미포함, .gitignore)
-├─ config.json.hash     ← SHA-256 무결성 검증 파일 (레포 미포함)
-├─ uploads/             ← 업로드된 실행파일 (레포 미포함, .gitkeep만 포함)
-├─ web/                 ← React 빌드 결과물 (레포 미포함, build.bat으로 생성)
-└─ logs/startup.log     ← 실행 로그 (레포 미포함)
+├─ config.json          ← 실행 항목 목록 + 설정
+├─ config.json.hash     ← SHA-256 무결성 검증 파일
+├─ uploads/             ← 업로드된 실행파일
+├─ web/                 ← React 빌드 결과물
+└─ logs/startup.log     ← 실행 로그
 ```
+
+**설치 환경** (`B-Handless.exe`, PyInstaller)
+```
+AppData\Local\B-Handless\
+├─ B-Handless.exe       ← 실행 파일
+├─ config.json          ← 실행 항목 목록 + 설정  ← exe 옆에 위치 (핵심)
+├─ config.json.hash     ← SHA-256 무결성 검증 파일
+├─ uploads/             ← 업로드된 실행파일
+├─ logs/startup.log     ← 실행 로그
+└─ _internal/           ← 앱 번들 (Python 런타임 등, 수정 불필요)
+```
+
+> `_internal/` 내부가 아닌 exe 옆에 데이터 파일을 두는 것이 핵심.  
+> `core/config_manager.py`, `core/security.py`, `core/launcher.py` 는 `_app_root()` 함수로  
+> frozen 환경과 개발 환경을 구분해 올바른 경로를 반환한다.
 
 config.json 예시:
 ```json
@@ -175,9 +201,36 @@ config.json 예시:
 |------|------|----------------|
 | `python main.py` | 트레이 앱 실행 (서버 + 시작 항목 + 트레이 아이콘) | 없음 |
 | `python main.py --serve` | 서버 실행 + 브라우저 자동 오픈 (수동 관리·개발용) | 없음 |
-| `python main.py --register` | Windows 시작 프로그램 등록 | Run 키 추가 |
+| `python main.py --register` | Windows 시작 프로그램 등록 + config.json `registered_as_startup=true` | Run 키 추가 |
 | `python main.py --unregister` | Windows 시작 프로그램 해제 | Run 키 삭제 |
 | `python main.py --status` | 등록 상태 확인 | 없음 |
+| `python main.py --protocol-register` | `bhandless://` URL 프로토콜 핸들러 등록 | `HKCU\SOFTWARE\Classes\bhandless` 추가 |
+| `python main.py --protocol-unregister` | `bhandless://` URL 프로토콜 핸들러 해제 | 키 트리 삭제 |
+
+---
+
+---
+
+## 흐름 4 — 서버 오프라인 시 재시작 (bhandless://)
+
+PWA 앱 실행 시 서버가 꺼져 있으면 오프라인 배너가 표시된다.
+
+```
+[PWA 앱 열기]
+   │
+   └─ App.tsx 마운트 시 GET /api/items 헬스체크
+      └─ 응답 없음 → "서버가 꺼져 있어요" 오버레이 표시
+         │
+         ├─ [서버 시작하기] 버튼 클릭
+         │   └─ bhandless:// 링크 실행
+         │       └─ 레지스트리 핸들러 → B-Handless.exe "bhandless://" 실행
+         │           ├─ 서버 이미 실행 중 → 브라우저 열고 종료
+         │           └─ 서버 꺼져 있음 → 트레이 앱 기본 모드로 시작
+         │
+         └─ [재연결 시도] 버튼 클릭
+             └─ GET /api/items (cache: no-store) 재시도
+                └─ 성공 시 → serverOnline=true, 오버레이 제거
+```
 
 ---
 

@@ -6,10 +6,18 @@ API 서버 보안 설정 및 입력 검증 유틸리티
 - 실행 파일 경로는 이 모듈의 함수를 통해 검증
 """
 
+import sys
 from pathlib import Path
 
+
+def _app_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    return Path(__file__).parent.parent
+
+
 # 업로드된 실행 파일은 이 디렉토리 안에서만 실행 허용
-UPLOADS_DIR = (Path(__file__).parent.parent / "uploads").resolve()
+UPLOADS_DIR = (_app_root() / "uploads").resolve()
 
 # 실행 허용 확장자
 _ALLOWED_EXTENSIONS = {".exe", ".bat", ".cmd", ".lnk"}
@@ -53,7 +61,7 @@ def validate_exe_path(path: str) -> Path:
     if raw.is_absolute():
         resolved = raw.resolve()
     else:
-        resolved = (Path(__file__).parent.parent / raw).resolve()
+        resolved = (_app_root() / raw).resolve()
 
     # 확장자 화이트리스트
     if resolved.suffix.lower() not in _ALLOWED_EXTENSIONS:
