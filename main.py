@@ -7,10 +7,25 @@
 """
 
 import sys
+import traceback
 from core.config_manager import ConfigManager
-from core.launcher import launch_all
+from core.launcher import launch_all, LOGS_DIR
 from core import scheduler
 from core.security import SERVER_HOST
+
+
+def _run_uvicorn(app, host: str, port: int):
+    """uvicorn 실행 — console=False 환경에서 log_config=None 필수 (stdout=None 충돌 방지)"""
+    try:
+        import uvicorn
+        uvicorn.run(app, host=host, port=port, reload=False, log_config=None)
+    except Exception:
+        try:
+            (LOGS_DIR / "uvicorn_error.log").write_text(
+                traceback.format_exc(), encoding="utf-8"
+            )
+        except Exception:
+            pass
 
 
 def main():
@@ -43,27 +58,37 @@ def main():
         print("[OK] URL 프로토콜 해제 완료" if ok else "[FAIL] 프로토콜 해제 실패")
         return
 
-    # bhandless:// 링크로 실행된 경우 — 서버가 이미 켜져 있으면 브라우저만 열고 종료
+    # bhandless:// 링크로 실행된 경우
     if any(a.startswith("bhandless://") for a in args):
         import socket
-        import webbrowser as _wb
-        _port = ConfigManager().get_settings().get("api_port", 8000)
+        import threading
+        import uvicorn
+        from api.server import app as fastapi_app
+        from core.tray import run_tray
+
+        _cm = ConfigManager()
+        _port = _cm.get_settings().get("api_port", 8000)
         try:
             s = socket.create_connection((SERVER_HOST, _port), timeout=1)
             s.close()
-            _wb.open(f"http://{SERVER_HOST}:{_port}")
-            return  # 서버 이미 실행 중 → 브라우저만 열고 종료
+            # 서버 이미 실행 중 → 아무것도 하지 않고 종료 (PWA가 재연결 감지)
+            return
         except OSError:
-            pass  # 서버 꺼져 있음 → 아래 기본 모드로 진행 (tray + server 시작)
+            pass  # 서버 꺼져 있음 → 서버 + 트레이만 시작 (시작 항목 실행 안 함)
+
+        threading.Thread(
+            target=lambda: _run_uvicorn(fastapi_app, SERVER_HOST, _port),
+            daemon=True,
+        ).start()
+        run_tray(_port)
+        return
 
     if "--serve" in args:
         import threading
         import webbrowser
-        import uvicorn
-        from core.config_manager import ConfigManager as CM
         from api.server import app
 
-        port = CM().get_settings().get("api_port", 8000)
+        port = ConfigManager().get_settings().get("api_port", 8000)
         url = f"http://{SERVER_HOST}:{port}"
         print(f"[B-Handless] 서버 시작 → {url}")
 
@@ -73,7 +98,7 @@ def main():
             webbrowser.open(url)
 
         threading.Thread(target=_open_browser, daemon=True).start()
-        uvicorn.run(app, host=SERVER_HOST, port=port, reload=False)
+        _run_uvicorn(app, SERVER_HOST, port)
         return
 
     import threading
@@ -90,7 +115,7 @@ def main():
 
     # FastAPI 서버 (트레이 종료 시 같이 죽도록 daemon)
     threading.Thread(
-        target=lambda: uvicorn.run(fastapi_app, host=SERVER_HOST, port=port, reload=False),
+        target=lambda: _run_uvicorn(fastapi_app, SERVER_HOST, port),
         daemon=True,
     ).start()
 
