@@ -11,6 +11,8 @@ uploads_dir = Path("uploads")
 if uploads_dir.exists():
     datas.append(("uploads", "uploads"))
 
+datas.append(("api/mobile.html", "api"))
+
 a = Analysis(
     ["main.py"],
     pathex=["."],

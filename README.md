@@ -472,6 +472,6 @@ python main.py --status      # 등록 상태 확인
 | Phase 1 | Python 핵심 엔진 (launcher, config, scheduler) | 완료 |
 | Phase 2 | 보안 강화 (경로·URL 검증, SHA-256 무결성) | 완료 |
 | Phase 3 | FastAPI REST API 서버 | 완료 |
-| Phase 4 | React 대시보드 (PWA, Glassmorphism UI) | 완료 |
+| Phase 4 | React 대시보드 (PWA, 매트 파스텔톤 UI) | 완료 |
 | Phase 5 | PyInstaller .exe 패키징 + 설치 자동화 | 완료 |
 | Phase 6 | 시스템 트레이 앱 (pystray) — 부팅 시 서버 자동 시작 | 완료 |
